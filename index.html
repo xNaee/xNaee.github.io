@@ -185,7 +185,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
           </svg>
           <span id="visitor-count">…</span>
-          <span class="tooltip">Profile Views</span>
+          <span class="tooltip">Посетители</span>
         </div>
       </div>
     </div>
@@ -254,9 +254,11 @@ const CONFIG = {
   volume: 0.1,          // громкость музыки при входе (0–1)
   cardOpacity: 0.21,    // затемнение карточки (0 — прозрачная, 1 — чёрная)
 
-  // Настоящий счётчик просмотров через counterapi.dev (бесплатно).
-  // Впиши уникальное имя, например свой ник. false — счётчик скрыт.
-  viewsCounterKey: "xnae-bio",
+  // Счётчик посетителей через abacus.jasoncameron.dev (бесплатно, без регистрации).
+  // Считает уникальных: один человек = +1, повторные заходы не накручивают.
+  // Посмотреть число вручную: https://abacus.jasoncameron.dev/get/xnaee.github.io/visitors
+  // false — счётчик скрыт.
+  viewsCounter: { namespace: "xnaee.github.io", key: "visitors" },
 
   customCursor: false,   // true — курсор из assets/custom_cursor.png
   cursorTrail: true,     // светящийся след за мышкой
@@ -492,15 +494,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ---------- счётчик просмотров ----------
   const counter = $('visitor-counter');
-  if (CONFIG.viewsCounterKey) {
+  if (CONFIG.viewsCounter) {
+    const { namespace, key } = CONFIG.viewsCounter;
+    const API = 'https://abacus.jasoncameron.dev';
+    const flag = 'counted-' + namespace + '-' + key;
     let seen = false;
-    try { seen = localStorage.getItem('viewed') === '1'; } catch (e) {}
-    const url = `https://api.counterapi.dev/v1/${encodeURIComponent(CONFIG.viewsCounterKey)}/views${seen ? '' : '/up'}`;
-    fetch(url).then(r => r.json()).then(d => {
-      if (typeof d.count !== 'number') throw 0;
-      $('visitor-count').textContent = d.count.toLocaleString();
-      try { localStorage.setItem('viewed', '1'); } catch (e) {}
-    }).catch(() => counter.classList.add('hidden'));
+    try { seen = localStorage.getItem(flag) === '1'; } catch (e) {}
+    const path = (seen ? '/get/' : '/hit/') + encodeURIComponent(namespace) + '/' + encodeURIComponent(key);
+    fetch(API + path)
+      .then(r => r.json())
+      .then(d => {
+        if (typeof d.value !== 'number') throw d;
+        $('visitor-count').textContent = d.value.toLocaleString('ru-RU');
+        try { localStorage.setItem(flag, '1'); } catch (e) {}
+      })
+      .catch(err => { console.warn('Счётчик не загрузился:', err); counter.classList.add('hidden'); });
   } else {
     counter.classList.add('hidden');
   }
